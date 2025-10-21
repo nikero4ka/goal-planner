@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Планировщик целей · Футбол</title>
+  <!-- Tailwind via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Simple progress bar */
+    .progress { height: 8px; background: #e5e7eb; border-radius: 9999px; overflow: hidden;}
+    .progress > div { height: 100%; background: #3b82f6; }
+    .chip { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100; }
+    .btn { @apply inline-flex items-center gap-1 px-3 py-2 rounded-lg border bg-white hover:bg-gray-50; }
+    .btn-primary { @apply bg-blue-600 text-white hover:bg-blue-700 border-blue-600; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <header class="sticky top-0 z-10 backdrop-blur bg-white/70 border-b">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🎯</span>
+        <h1 class="text-xl sm:text-2xl font-semibold">Планировщик целей · Футбол</h1>
+      </div>
+      <div class="flex gap-2">
+        <button id="btnNewGoal" class="btn btn-primary">+ Новая цель</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+    <!-- Stats -->
+    <section id="stats" class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div class="rounded-2xl bg-white border p-4">
+        <div class="text-sm text-gray-500">Всего целей</div>
+        <div id="statTotal" class="text-2xl font-bold">0</div>
+      </div>
+      <div class="rounded-2xl bg-white border p-4">
+        <div class="text-sm text-gray-500">Завершено</div>
+        <div id="statCompleted" class="text-2xl font-bold">0</div>
+      </div>
+      <div class="rounded-2xl bg-white border p-4">
+        <div class="text-sm text-gray-500">Просрочено</div>
+        <div id="statOverdue" class="text-2xl font-bold">0</div>
+      </div>
+      <div class="rounded-2xl bg-white border p-4">
+        <div class="text-sm text-gray-500">Минут трен. (всё время)</div>
+        <div id="statTrainMin" class="text-2xl font-bold">0</div>
+      </div>
+      <div class="rounded-2xl bg-white border p-4">
+        <div class="text-sm text-gray-500">Матчей в мес.</div>
+        <div id="statMatchMonth" class="text-2xl font-bold">0</div>
+      </div>
+    </section>
+
+    <!-- Points -->
+    <section class="rounded-2xl bg-white border p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold">🏆 Очки</h2>
+        <div class="text-2xl font-bold" id="pointsTotal">0</div>
+      </div>
+      <div class="text-sm text-gray-500">Из матчей: <span id="pointsFromMatches">0</span></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+        <label class="block text-sm">
+          Бонусные очки (ручной учёт)
+          <input id="bonusPoints" type="number" class="mt-1 w-full rounded-lg border px-3 py-2" value="0"/>
+        </label>
+        <p class="text-xs text-gray-500">Совет: используйте бонус для своих метрик (дисциплина, тактика и т.п.).</p>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="rounded-2xl bg-white border p-4">
+      <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button class="btn" data-filter="active">Активные</button>
+          <button class="btn" data-filter="all">Все</button>
+          <button class="btn" data-filter="overdue">Просроченные</button>
+          <button class="btn" data-filter="thisWeek">На этой неделе</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm">Категория</label>
+          <select id="categoryFilter" class="rounded-lg border px-3 py-2 w-44">
+            <option value="all">Все</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Football sections -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Trainings -->
+      <div class="rounded-2xl bg-white border p-4">
+        <h2 class="text-base font-semibold mb-3">💪 Тренировки</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
+          <label class="text-sm">Дата
+            <input id="trainDate" type="date" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+          <label class="text-sm">Тип
+            <select id="trainType" class="mt-1 w-full rounded-lg border px-3 py-2">
+              <option>Техника</option>
+              <option>Тактика</option>
+              <option>Выносливость</option>
+              <option>Скорость</option>
+              <option>Силовая</option>
+              <option>Другое</option>
+            </select>
+          </label>
+          <label class="text-sm">Минуты
+            <input id="trainMinutes" type="number" value="60" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+          <label class="text-sm">Интенсивность (1–5)
+            <input id="trainIntensity" type="number" min="1" max="5" value="3" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+          <button id="addTraining" class="btn btn-primary">Добавить</button>
+          <label class="text-sm sm:col-span-5">Заметки
+            <input id="trainNotes" class="mt-1 w-full rounded-lg border px-3 py-2" placeholder="Напр., интервальный бег 6×400м"/>
+          </label>
+        </div>
+        <div id="trainingList" class="mt-3 space-y-2 text-sm"></div>
+      </div>
+
+      <!-- Matches -->
+      <div class="rounded-2xl bg-white border p-4">
+        <h2 class="text-base font-semibold mb-3">📅 Матчи</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-7 gap-2 items-end">
+          <label class="text-sm">Дата
+            <input id="matchDate" type="date" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+          <label class="text-sm sm:col-span-2">Соперник
+            <input id="matchOpponent" class="mt-1 w-full rounded-lg border px-3 py-2" placeholder="Напр., FC Ajax U19"/>
+          </label>
+          <label class="text-sm sm:col-span-2">Турнир
+            <input id="matchCompetition" class="mt-1 w-full rounded-lg border px-3 py-2" placeholder="Лига/Кубок"/>
+          </label>
+          <label class="text-sm">Минуты
+            <input id="matchMinutes" type="number" value="90" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+          <label class="text-sm">Голы
+            <input id="matchGoals" type="number" value="0" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+          <label class="text-sm">Ассисты
+            <input id="matchAssists" type="number" value="0" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+          <label class="text-sm">Оценка (1–10)
+            <input id="matchRating" type="number" value="7" min="1" max="10" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+          <label class="text-sm">Результат
+            <select id="matchResult" class="mt-1 w-full rounded-lg border px-3 py-2">
+              <option value="W">Победа</option>
+              <option value="D">Ничья</option>
+              <option value="L">Поражение</option>
+            </select>
+          </label>
+          <button id="addMatch" class="btn btn-primary sm:col-span-2">Добавить матч</button>
+          <label class="text-sm sm:col-span-7">Заметки
+            <input id="matchNotes" class="mt-1 w-full rounded-lg border px-3 py-2" placeholder="Напр., сыграл слева, xG 0.4"/>
+          </label>
+        </div>
+        <div id="matchList" class="mt-3 space-y-2 text-sm"></div>
+      </div>
+    </section>
+
+    <!-- Goals list -->
+    <section id="goalsSection"></section>
+  </main>
+
+  <!-- Modal for new goal -->
+  <dialog id="goalDialog" class="rounded-2xl border p-0 w-full max-w-2xl backdrop:bg-black/30">
+    <form method="dialog" class="p-0 m-0">
+      <div class="p-4 border-b"><div class="text-lg font-semibold" id="goalDialogTitle">Новая цель</div></div>
+      <div class="p-4 space-y-3">
+        <label class="block text-sm">Название цели
+          <input id="gTitle" required class="mt-1 w-full rounded-lg border px-3 py-2" placeholder="Напр., Улучшить выносливость"/>
+        </label>
+        <label class="block text-sm">Описание
+          <textarea id="gDesc" class="mt-1 w-full rounded-lg border px-3 py-2" placeholder="Как измерить успех, почему важно"></textarea>
+        </label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label class="block text-sm">Категория
+            <select id="gCategory" class="mt-1 w-full rounded-lg border px-3 py-2">
+              <option>Спорт</option><option>Личное</option><option>Учёба</option><option>Работа</option><option>Финансы</option><option>Здоровье</option><option>Другое</option>
+            </select>
+          </label>
+          <label class="block text-sm">Приоритет
+            <select id="gPriority" class="mt-1 w-full rounded-lg border px-3 py-2"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+          </label>
+          <label class="block text-sm">Дедлайн
+            <input id="gDue" type="date" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+        </div>
+        <div class="grid items-center gap-2">
+          <div class="flex items-center gap-3 text-sm">
+            <span>Режим прогресса:</span>
+            <label class="inline-flex items-center gap-2"><input type="radio" name="pmode" value="tasks" checked /> Подзадачи</label>
+            <label class="inline-flex items-center gap-2"><input type="radio" name="pmode" value="percent" /> % вручную</label>
+          </div>
+          <label class="block text-sm" id="percentWrap" style="display:none">Текущий прогресс (%)
+            <input id="gPercent" type="number" min="0" max="100" value="0" class="mt-1 w-full rounded-lg border px-3 py-2"/>
+          </label>
+        </div>
+      </div>
+      <div class="p-4 border-t flex justify-end gap-2">
+        <button class="btn" value="cancel">Отмена</button>
+        <button id="goalSave" class="btn btn-primary" value="default">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="goalCardTpl">
+    <div class="rounded-2xl bg-white border p-4 space-y-3"></div>
+  </template>
+
+  <script>
+    // ---- Utilities ----
+    const STORAGE_GOALS = "goal-planner:data:v1";
+    const STORAGE_TRAININGS = "goal-planner:trainings:v1";
+    const STORAGE_MATCHES = "goal-planner:matches:v1";
+    const STORAGE_POINTS_BONUS = "goal-planner:points-bonus:v1";
+
+    const todayISO = () => new Date().toISOString().slice(0,10);
+    const uid = () => Math.random().toString(36).slice(2,10);
+    const fmtDate = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString() : "—";
+    const clamp = (n, min=0, max=100) => Math.max(min, Math.min(max, n));
+    const isOverdue = (d) => { if (!d) return false; const t=new Date(todayISO()); const x=new Date(d + "T00:00:00"); return x < t; };
+
+    // ---- State ----
+    let goals = [];
+    let trainings = [];
+    let matches = [];
+    let bonusPoints = 0;
+    let filter = "active";
+    let category = "all";
+
+    // ---- Load/Save ----
+    function loadAll() {
+      try { goals = JSON.parse(localStorage.getItem(STORAGE_GOALS) || "[]"); } catch {}
+      try { trainings = JSON.parse(localStorage.getItem(STORAGE_TRAININGS) || "[]"); } catch {}
+      try { matches = JSON.parse(localStorage.getItem(STORAGE_MATCHES) || "[]"); } catch {}
+      try { bonusPoints = Number(localStorage.getItem(STORAGE_POINTS_BONUS) || "0"); } catch {}
+      document.getElementById('bonusPoints').value = String(bonusPoints);
+    }
+    function saveGoals(){ localStorage.setItem(STORAGE_GOALS, JSON.stringify(goals)); }
+    function saveTrainings(){ localStorage.setItem(STORAGE_TRAININGS, JSON.stringify(trainings)); }
+    function saveMatches(){ localStorage.setItem(STORAGE_MATCHES, JSON.stringify(matches)); }
+    function saveBonus(){ localStorage.setItem(STORAGE_POINTS_BONUS, String(bonusPoints)); }
+
+    // ---- Derived ----
+    function computeProgress(g){
+      if (g.progressMode === "percent") return clamp(Math.round(g.percent || 0));
+      if (!g.subtasks || !g.subtasks.length) return 0;
+      const done = g.subtasks.filter(t=>t.done).length;
+      return Math.round((done / g.subtasks.length) * 100);
+    }
+    function priorityStars(p){ return "★★★★★".slice(0,p) + "☆☆☆☆☆".slice(0,5-p); }
+
+    // ---- Renderers ----
+    function renderStats(){
+      const total = goals.length;
+      const completed = goals.filter(g => computeProgress(g) >= 100).length;
+      const overdue = goals.filter(g => isOverdue(g.dueDate) && computeProgress(g) < 100).length;
+      const trainMin = trainings.reduce((a,b)=>a+b.durationMin,0);
+      const now = new Date();
+      const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      const matchMonth = matches.filter(m => (m.date||'').startsWith(ym)).length;
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statCompleted').textContent = completed;
+      document.getElementById('statOverdue').textContent = overdue;
+      document.getElementById('statTrainMin').textContent = trainMin;
+      document.getElementById('statMatchMonth').textContent = matchMonth;
+    }
+    function renderPoints(){
+      const fromMatches = matches.reduce((sum,m)=> sum + (m.goals||0)*4 + (m.assists||0)*3 + (Number(m.rating)||0), 0);
+      document.getElementById('pointsFromMatches').textContent = Math.round(fromMatches);
+      document.getElementById('pointsTotal').textContent = Math.round(fromMatches + bonusPoints);
+    }
+    function renderCategoryFilter(){
+      const sel = document.getElementById('categoryFilter');
+      const options = new Set(["all"]);
+      goals.forEach(g => options.add(g.category || "Другое"));
+      sel.innerHTML = "";
+      for(const o of options){ const opt = document.createElement('option'); opt.value=o; opt.textContent=(o==="all"?"Все":o); sel.appendChild(opt); }
+      sel.value = category;
+    }
+    function renderTrainings(){
+      const list = document.getElementById('trainingList');
+      list.innerHTML = "";
+      if (trainings.length===0){ list.innerHTML = '<p class="text-gray-500">Пока нет записей. Добавь первую тренировку 👆</p>'; return; }
+      trainings.slice().reverse().forEach(t=>{
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between border rounded-xl p-3";
+        row.innerHTML = \`<div><div class="font-medium">\${fmtDate(t.date)} — \${t.type}</div><div class="text-xs text-gray-500">\${t.durationMin} мин · Интенсивность \${t.intensity}\${t.notes? ' · '+t.notes:''}</div></div><button class="btn" data-del="\${t.id}">Удалить</button>\`;
+        row.querySelector('button').addEventListener('click', ()=>{ trainings = trainings.filter(x=>x.id!==t.id); saveTrainings(); renderAll(); });
+        list.appendChild(row);
+      });
+    }
+    function renderMatches(){
+      const list = document.getElementById('matchList');
+      list.innerHTML = "";
+      if (matches.length===0){ list.innerHTML = '<p class="text-gray-500">Пока нет матчей. Добавь первый 👆</p>'; return; }
+      matches.slice().reverse().forEach(m=>{
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between border rounded-xl p-3";
+        row.innerHTML = \`<div><div class="font-medium">\${fmtDate(m.date)} — \${m.opponent} \${m.competition? '· '+m.competition:''}</div><div class="text-xs text-gray-500">\${m.minutes} мин · Голы \${m.goals} · Ассисты \${m.assists} · Оценка \${m.rating ?? '—'} · Рез: \${m.result ?? '—'}\${m.notes? ' · '+m.notes:''}</div></div><button class="btn" data-del="\${m.id}">Удалить</button>\`;
+        row.querySelector('button').addEventListener('click', ()=>{ matches = matches.filter(x=>x.id!==m.id); saveMatches(); renderAll(); });
+        list.appendChild(row);
+      });
+    }
+    function renderGoals(){
+      const sec = document.getElementById('goalsSection');
+      sec.innerHTML = "";
+      // Filters
+      const now = new Date();
+      const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+      const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+      const filtered = goals.filter(g=>{
+        if (category !== "all" && g.category !== category) return false;
+        if (filter === "all") return true;
+        if (filter === "active") return !g.archived;
+        if (filter === "overdue") return !g.archived && isOverdue(g.dueDate) && computeProgress(g) < 100;
+        if (filter === "thisWeek"){ const d=new Date((g.dueDate||todayISO())+"T00:00:00"); return d>=monday && d<=sunday; }
+        return true;
+      });
+      if (filtered.length===0){
+        const empty = document.createElement('div');
+        empty.className = "text-center py-16 border-2 border-dashed rounded-2xl bg-white";
+        empty.innerHTML = '<div class=\"mx-auto max-w-xl space-y-3\"><h2 class=\"text-2xl font-semibold\">У тебя ещё нет целей</h2><p class=\"text-gray-500\">Добавь первую — задай дедлайн, приоритет и начни движение к результату.</p><button class=\"btn btn-primary\" id=\"emptyNew\">+ Новая цель</button></div>';
+        sec.appendChild(empty);
+        empty.querySelector('#emptyNew').addEventListener('click', openGoalDialogNew);
+        return;
+      }
+      const grid = document.createElement('div');
+      grid.className = "grid grid-cols-1 md:grid-cols-2 gap-4";
+      filtered.forEach(g=> grid.appendChild(goalCard(g)));
+      sec.appendChild(grid);
+    }
+    function goalCard(g){
+      const wrap = document.createElement('div');
+      wrap.className = "rounded-2xl bg-white border p-4 space-y-3";
+      const percent = computeProgress(g);
+      wrap.innerHTML = \`
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-xl font-semibold">\${g.title}</div>
+            <div class="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-2">
+              <span class="chip">\${g.category || '—'}</span>
+              <span title="Приоритет">\${'★★★★★'.slice(0,g.priority)}\${'☆☆☆☆☆'.slice(0,5-g.priority)}</span>
+              <span class="\${isOverdue(g.dueDate) ? 'text-red-600' : ''}">📅 \${fmtDate(g.dueDate)}</span>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn" data-edit>✏️</button>
+            <button class="btn" data-del>🗑️</button>
+          </div>
+        </div>
+        \${g.description ? '<p class="text-sm text-gray-600">'+g.description+'</p>' : ''}
+        <div>
+          <div class="flex items-center justify-between text-sm mb-1"><span>Прогресс</span><span class="font-medium">\${percent}%</span></div>
+          <div class="progress"><div style="width:\${percent}%"></div></div>
+        </div>
+        \${g.progressMode==='percent' ? \`
+          <div class="flex items-end gap-2">
+            <label class="flex-1 text-sm">Обновить прогресс (%)
+              <input type="number" min="0" max="100" value="\${g.percent ?? 0}" class="mt-1 w-full rounded-lg border px-3 py-2" data-pinp/>
+            </label>
+            <button class="btn" data-plus10>+10%</button>
+          </div>\`
+        : \`
+          <div class="space-y-2">
+            <button class="text-sm underline" data-toggle>Показать подзадачи (\${(g.subtasks||[]).filter(s=>s.done).length}/\${(g.subtasks||[]).length})</button>
+            <div class="space-y-2 hidden" data-subwrap>
+              <div class="flex gap-2 items-end">
+                <input class="flex-1 rounded-lg border px-3 py-2" placeholder="Новая подзадача" data-subtitle/>
+                <input type="date" class="rounded-lg border px-3 py-2" data-subdue/>
+                <button class="btn" data-subadd>Добавить</button>
+              </div>
+              <div class="space-y-2" data-sublist></div>
+            </div>
+          </div>\`}
+      \`;
+      // actions
+      wrap.querySelector('[data-edit]').addEventListener('click', ()=> openGoalDialogEdit(g));
+      wrap.querySelector('[data-del]').addEventListener('click', ()=> { goals = goals.filter(x=>x.id!==g.id); saveGoals(); renderAll(); });
+      if (g.progressMode==='percent'){
+        wrap.querySelector('[data-plus10]').addEventListener('click', ()=>{
+          g.percent = clamp((g.percent || 0) + 10);
+          g.updatedAt = new Date().toISOString();
+          saveGoals(); renderAll();
+        });
+        wrap.querySelector('[data-pinp]').addEventListener('change', (e)=>{
+          g.percent = clamp(Number(e.target.value)||0);
+          g.updatedAt = new Date().toISOString();
+          saveGoals(); renderAll();
+        });
+      } else {
+        const toggleBtn = wrap.querySelector('[data-toggle]');
+        const subwrap = wrap.querySelector('[data-subwrap]');
+        const sublist = wrap.querySelector('[data-sublist]');
+        const subtitle = wrap.querySelector('[data-subtitle]');
+        const subdue = wrap.querySelector('[data-subdue]');
+        const subadd = wrap.querySelector('[data-subadd]');
+        toggleBtn.addEventListener('click', ()=>{ subwrap.classList.toggle('hidden'); });
+        function renderSubs(){
+          sublist.innerHTML = '';
+          (g.subtasks||[]).forEach(t=>{
+            const r = document.createElement('div');
+            r.className = "flex items-center justify-between border rounded-xl p-3 text-sm";
+            r.innerHTML = \`<div class="flex items-center gap-3">
+              <input type="checkbox" \${t.done?'checked':''} data-cb/>
+              <div><div class="font-medium">\${t.title}</div><div class="text-xs text-gray-500">\${t.dueDate ? '📅 '+fmtDate(t.dueDate): 'Без срока'} \${(!t.done && t.dueDate && isOverdue(t.dueDate))?'<span class="ml-2 text-red-600">Просрочено</span>':''}</div></div></div>
+              <button class="btn" data-del>Удалить</button>\`;
+            r.querySelector('[data-cb]').addEventListener('change', (e)=>{ t.done = e.target.checked; g.updatedAt = new Date().toISOString(); saveGoals(); renderAll(); });
+            r.querySelector('[data-del]').addEventListener('click', ()=>{ g.subtasks = (g.subtasks||[]).filter(x=>x!==t); g.updatedAt=new Date().toISOString(); saveGoals(); renderAll(); });
+            sublist.appendChild(r);
+          });
+        }
+        subadd.addEventListener('click', ()=>{
+          const title = (subtitle.value||'').trim(); if (!title) return;
+          const due = subdue.value || undefined;
+          g.subtasks = g.subtasks || [];
+          g.subtasks.push({ id: uid(), title, done:false, dueDate: due });
+          g.updatedAt = new Date().toISOString();
+          saveGoals(); renderAll();
+        });
+        renderSubs();
+      }
+      return wrap;
+    }
+
+    // ---- Dialog (create/edit) ----
+    const dlg = document.getElementById('goalDialog');
+    const dlgTitle = document.getElementById('goalDialogTitle');
+    const gTitle = document.getElementById('gTitle');
+    const gDesc = document.getElementById('gDesc');
+    const gCategory = document.getElementById('gCategory');
+    const gPriority = document.getElementById('gPriority');
+    const gDue = document.getElementById('gDue');
+    const gPercent = document.getElementById('gPercent');
+    const percentWrap = document.getElementById('percentWrap');
+    let dlgMode = 'new';
+    let editingId = null;
+
+    function openGoalDialogNew(){
+      dlgMode = 'new'; editingId = null;
+      dlgTitle.textContent = 'Новая цель';
+      gTitle.value = ''; gDesc.value = '';
+      gCategory.value = 'Спорт'; gPriority.value = '3'; gDue.value = todayISO();
+      document.querySelectorAll('input[name=\"pmode\"]').forEach(r=> r.checked = (r.value==='tasks'));
+      percentWrap.style.display = 'none'; gPercent.value = '0';
+      dlg.showModal();
+    }
+    function openGoalDialogEdit(goal){
+      dlgMode = 'edit'; editingId = goal.id;
+      dlgTitle.textContent = 'Редактировать цель';
+      gTitle.value = goal.title || ''; gDesc.value = goal.description || '';
+      gCategory.value = goal.category || 'Спорт'; gPriority.value = String(goal.priority || 3);
+      gDue.value = goal.dueDate || todayISO();
+      document.querySelectorAll('input[name=\"pmode\"]').forEach(r=> r.checked = (r.value===goal.progressMode));
+      percentWrap.style.display = (goal.progressMode==='percent')?'block':'none';
+      gPercent.value = String(goal.percent || 0);
+      dlg.showModal();
+    }
+    document.getElementById('btnNewGoal').addEventListener('click', openGoalDialogNew);
+    document.addEventListener('change', (e)=>{
+      if (e.target.name === 'pmode'){
+        percentWrap.style.display = (e.target.value==='percent')?'block':'none';
+      }
+    });
+    document.getElementById('goalSave').addEventListener('click', (e)=>{
+      e.preventDefault();
+      const pmode = [...document.querySelectorAll('input[name=\"pmode\"]')].find(r=>r.checked)?.value || 'tasks';
+      const now = new Date().toISOString();
+      const base = {
+        id: editingId || uid(),
+        title: gTitle.value.trim(),
+        description: gDesc.value.trim() || undefined,
+        category: gCategory.value,
+        priority: Number(gPriority.value),
+        startDate: todayISO(),
+        dueDate: gDue.value || todayISO(),
+        progressMode: pmode,
+        percent: pmode==='percent' ? clamp(Number(gPercent.value)||0) : undefined,
+        subtasks: [],
+        createdAt: now,
+        updatedAt: now,
+        archived: false,
+      };
+      if (!base.title){ return; }
+      if (dlgMode==='new'){ goals = [base, ...goals]; }
+      else { goals = goals.map(g => g.id===editingId ? { ...g, ...base, subtasks: g.subtasks||[] } : g); }
+      saveGoals(); dlg.close(); renderAll();
+    });
+
+    // ---- Events: filters ----
+    document.querySelectorAll('[data-filter]').forEach(btn => {
+      btn.addEventListener('click', ()=>{ filter = btn.dataset.filter; renderAll(); });
+    });
+    document.getElementById('categoryFilter').addEventListener('change', (e)=>{ category = e.target.value; renderAll(); });
+
+    // ---- Events: football ----
+    document.getElementById('addTraining').addEventListener('click', ()=>{
+      const t = {
+        id: uid(),
+        date: document.getElementById('trainDate').value || todayISO(),
+        type: document.getElementById('trainType').value,
+        durationMin: Math.max(0, Number(document.getElementById('trainMinutes').value) || 0),
+        intensity: Math.max(1, Math.min(5, Number(document.getElementById('trainIntensity').value) || 1)),
+        notes: (document.getElementById('trainNotes').value || '').trim() || undefined
+      };
+      trainings.push(t); saveTrainings(); renderAll();
+      document.getElementById('trainNotes').value = '';
+    });
+    document.getElementById('addMatch').addEventListener('click', ()=>{
+      const opp = (document.getElementById('matchOpponent').value || '').trim();
+      if (!opp) return;
+      const m = {
+        id: uid(),
+        date: document.getElementById('matchDate').value || todayISO(),
+        opponent: opp,
+        competition: (document.getElementById('matchCompetition').value || '').trim() || undefined,
+        minutes: Math.max(0, Number(document.getElementById('matchMinutes').value) || 0),
+        goals: Math.max(0, Number(document.getElementById('matchGoals').value) || 0),
+        assists: Math.max(0, Number(document.getElementById('matchAssists').value) || 0),
+        rating: Number(document.getElementById('matchRating').value) || undefined,
+        result: document.getElementById('matchResult').value || 'W',
+        notes: (document.getElementById('matchNotes').value || '').trim() || undefined
+      };
+      matches.push(m); saveMatches(); renderAll();
+      document.getElementById('matchOpponent').value = '';
+      document.getElementById('matchCompetition').value = '';
+      document.getElementById('matchNotes').value = '';
+    });
+    document.getElementById('bonusPoints').addEventListener('change', (e)=>{ bonusPoints = Number(e.target.value)||0; saveBonus(); renderPoints(); });
+
+    // ---- Initial ----
+    (function init(){
+      loadAll();
+      document.getElementById('trainDate').value = todayISO();
+      document.getElementById('matchDate').value = todayISO();
+      document.getElementById('gDue').value = todayISO();
+      renderAll();
+    })();
+
+    function renderAll(){
+      renderStats();
+      renderPoints();
+      renderCategoryFilter();
+      renderTrainings();
+      renderMatches();
+      renderGoals();
+    }
+  </script>
+</body>
+</html>
